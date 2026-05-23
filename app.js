@@ -15,13 +15,14 @@ import {
 //  Xem README.md để biết cách lấy config này.
 // ──────────────────────────────────────────────────────────────
 const firebaseConfig = {
-  apiKey:            "PASTE_YOUR_API_KEY_HERE",
-  authDomain:        "PASTE_YOUR_AUTH_DOMAIN_HERE",
-  projectId:         "PASTE_YOUR_PROJECT_ID_HERE",
-  storageBucket:     "PASTE_YOUR_STORAGE_BUCKET_HERE",
-  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID_HERE",
-  appId:             "PASTE_YOUR_APP_ID_HERE"
-};
+    apiKey: "AIzaSyCP85EZo7ntoRXSeAYcASkECo0orC812Cs",
+    authDomain: "goc-hoctro-cap2.firebaseapp.com",
+    projectId: "goc-hoctro-cap2",
+    storageBucket: "goc-hoctro-cap2.firebasestorage.app",
+    messagingSenderId: "129784346772",
+    appId: "1:129784346772:web:8830cb3c2abdee40bb1c81",
+    measurementId: "G-TR644S23VX"
+  };
 // ──────────────────────────────────────────────────────────────
 
 const CATS = [
