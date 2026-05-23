@@ -15,7 +15,7 @@ import {
 //  Xem README.md để biết cách lấy config này.
 // ──────────────────────────────────────────────────────────────
 const firebaseConfig = {
-apiKey: "AIzaSyCP85EZo7ntoRXSeAYcASkECo0orC812Cs",
+    apiKey: "AIzaSyCP85EZo7ntoRXSeAYcASkECo0orC812Cs",
     authDomain: "goc-hoctro-cap2.firebaseapp.com",
     projectId: "goc-hoctro-cap2",
     storageBucket: "goc-hoctro-cap2.firebasestorage.app",
