@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Góc Học Trò 📚</title>
+<meta name="description" content="Nơi chia sẻ kỷ niệm, kiến thức và câu chuyện mái trường tuổi học trò">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="ruled"></div>
+<div class="glow"></div>
+
+<header>
+  <div class="hi">
+    <div class="logo">
+      <div class="logo-ic">📚</div>
+      <div>
+        <div class="logo-t">Góc Học Trò</div>
+        <div class="logo-s">Nơi lưu giữ kỷ niệm &amp; chia sẻ kiến thức</div>
+      </div>
+    </div>
+    <button class="btn-new" onclick="openNew()">✏️ Đăng bài</button>
+  </div>
+</header>
+
+<main class="main">
+  <div class="notice" id="dbNotice">
+    🔌 Đang kết nối database... Vui lòng chờ.
+  </div>
+
+  <div class="sw">
+    <span style="color:var(--muted)">🔍</span>
+    <input type="text" id="si" placeholder="Tìm bài viết, tác giả, nội dung..." oninput="doFilter()">
+    <button class="btn-refresh" onclick="loadPosts(true)" title="Tải lại">🔄</button>
+  </div>
+
+  <div class="stats" id="statsBar">
+    <div class="si">⏳ Đang tải...</div>
+  </div>
+
+  <div class="tabs" id="tabsEl"></div>
+  <div class="grid" id="postsGrid">
+    <div class="spin-wrap"><div class="sp"></div>Đang kết nối và tải bài viết...</div>
+  </div>
+</main>
+
+<!-- Modal đăng bài -->
+<div class="ov" id="newOv">
+  <div class="modal">
+    <div class="mhd">
+      <div class="mt">✏️ Đăng bài mới</div>
+      <button class="xb" onclick="closeNew()">✕</button>
+    </div>
+    <div class="mb">
+      <div class="fg">
+        <label class="fl">Tiêu đề <span style="color:var(--red)">*</span></label>
+        <input type="text" class="fi" id="pT" placeholder="Tiêu đề hấp dẫn..." maxlength="100" oninput="upC('pT','tc',100)">
+        <div class="ch"><span id="tc">0</span>/100</div>
+      </div>
+      <div class="fg">
+        <label class="fl">Danh mục <span style="color:var(--red)">*</span></label>
+        <div class="cg" id="catGrid"></div>
+      </div>
+      <div class="fg">
+        <label class="fl">Nội dung <span style="color:var(--red)">*</span></label>
+        <textarea class="fi" id="pC" placeholder="Chia sẻ câu chuyện, kiến thức, kỷ niệm của bạn..." maxlength="2000" oninput="upC('pC','cc2',2000)"></textarea>
+        <div class="ch"><span id="cc2">0</span>/2000</div>
+      </div>
+      <div class="fg">
+        <label class="fl">Tên của bạn</label>
+        <input type="text" class="fi" id="pA" placeholder="Biệt danh hoặc tên thật (để trống = Ẩn danh)..." maxlength="40">
+      </div>
+      <button class="sub" id="subBtn" onclick="doSubmit()">📌 Đăng bài ngay</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal xem chi tiết -->
+<div class="dov" id="detOv" onclick="cDOut(event)">
+  <div class="dp" id="detPanel"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<script type="module" src="app.js"></script>
+</body>
+</html>
