@@ -1,23 +1,15 @@
 // ============================================================
-//  GÓC HỌC TRÒ — app.js  (phiên bản nâng cấp)
-//  - Đăng ảnh (upload / chụp camera)
-//  - 5 filter cute
-//  - Tải ảnh về
-//  - Phát nhạc YouTube (toàn trang & trong bài)
+//  GÓC HỌC TRÒ — app.js  (fixed: ảnh base64 + nhạc iframe)
 // ============================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
   getFirestore, collection, addDoc, getDocs, doc,
-  updateDoc, increment, orderBy, query, onSnapshot, serverTimestamp, arrayUnion
+  updateDoc, increment, orderBy, query, onSnapshot,
+  serverTimestamp, arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import {
-  getStorage, ref, uploadString, getDownloadURL
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-// ──────────────────────────────────────────────────────────────
-//  🔥 FIREBASE CONFIG — Thay bằng config của bạn!
-// ──────────────────────────────────────────────────────────────
+// 🔥 FIREBASE CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyCP85EZo7ntoRXSeAYcASkECo0orC812Cs",
   authDomain: "goc-hoctro-cap2.firebaseapp.com",
@@ -36,37 +28,33 @@ const CATS = [
   { id:'love',   name:'Thổ lộ',   icon:'💌', color:'#A32D2D', bg:'#FCEBEB', bar:'#E24B4A' },
   { id:'other',  name:'Khác',     icon:'💬', color:'#534AB7', bg:'#EEEDFE', bar:'#7F77DD' },
 ];
-const GC = id => CATS.find(c => c.id === id) || CATS[5];
-const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const GC  = id => CATS.find(c => c.id === id) || CATS[5];
+const esc = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-// ── State ────────────────────────────────────────────────────
-let db, storage;
+// ── State
+let db;
 let posts = [];
 let selTab = 'all';
 let selCat = null;
 let curDet = null;
 
 // Image state
-let rawImageDataUrl = null;   // original from file/camera
-let finalImageDataUrl = null; // after filter applied
-let currentFilter = 'none';
+let rawImageDataUrl   = null;
+let finalImageDataUrl = null;
+let currentFilter     = 'none';
 
-// Camera state
-let camStream = null;
+// Camera
+let camStream       = null;
 let camFilterActive = 'none';
 
-// YouTube state
-let ytPlayer = null;
-let ytReady = false;
-let pendingVideoId = null;
-
-// ── INIT ─────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════
 async function init() {
   setNotice('connecting', '🔌 Đang kết nối database...');
   try {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
-    storage = getStorage(app);
     setNotice('ok', '🌐 Đã kết nối! Bài đăng được chia sẻ với mọi người.');
     startRealtime();
     setupDragDrop();
@@ -76,7 +64,7 @@ async function init() {
   }
 }
 
-// ── REALTIME ─────────────────────────────────────────────────
+// ── Realtime listener
 function startRealtime() {
   const q = query(collection(db, 'posts'), orderBy('time', 'desc'));
   onSnapshot(q, snap => {
@@ -99,20 +87,17 @@ window.loadPosts = async (manual = false) => {
   } catch(e) { showT('Lỗi tải bài!'); }
 };
 
-// ── RENDER ───────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════════════════
 function renderAll() {
-  renderStats();
-  renderTabs();
-  renderPosts();
-  if (curDet) {
-    const updated = posts.find(p => p.id === curDet);
-    if (updated) renderDet();
-  }
+  renderStats(); renderTabs(); renderPosts();
+  if (curDet && posts.find(p => p.id === curDet)) renderDet();
 }
 
 function renderStats() {
-  const tc = posts.reduce((s,p) => s + (p.comments?.length || 0), 0);
-  const tl = posts.reduce((s,p) => s + (p.likes || 0), 0);
+  const tc = posts.reduce((s,p)=>s+(p.comments?.length||0),0);
+  const tl = posts.reduce((s,p)=>s+(p.likes||0),0);
   document.getElementById('statsBar').innerHTML = `
     <div class="si">📝 <span class="sn">${posts.length}</span> bài viết</div>
     <div class="si">💬 <span class="sn">${tc}</span> bình luận</div>
@@ -123,7 +108,7 @@ function renderStats() {
 function renderTabs() {
   const h = [`<button class="tab ${selTab==='all'?'active':''}" onclick="sTab('all')">Tất cả (${posts.length})</button>`];
   CATS.forEach(c => {
-    const n = posts.filter(p => p.cat === c.id).length;
+    const n = posts.filter(p=>p.cat===c.id).length;
     if (n) h.push(`<button class="tab ${selTab===c.id?'active':''}" onclick="sTab('${c.id}')">${c.icon} ${c.name} (${n})</button>`);
   });
   document.getElementById('tabsEl').innerHTML = h.join('');
@@ -131,9 +116,9 @@ function renderTabs() {
 window.sTab = id => { selTab = id; renderAll(); };
 
 function getFiltered() {
-  const q = (document.getElementById('si')?.value || '').toLowerCase();
+  const q = (document.getElementById('si')?.value||'').toLowerCase();
   return posts
-    .filter(p => selTab === 'all' || p.cat === selTab)
+    .filter(p => selTab==='all' || p.cat===selTab)
     .filter(p => !q || p.title?.toLowerCase().includes(q) || p.content?.toLowerCase().includes(q) || p.author?.toLowerCase().includes(q));
 }
 window.doFilter = () => renderPosts();
@@ -146,14 +131,14 @@ function renderPosts() {
     return;
   }
   const now = Date.now();
-  g.innerHTML = list.map((p, i) => {
-    const c = GC(p.cat);
-    const ts = p.time?.toMillis ? p.time.toMillis() : (p.time || 0);
+  g.innerHTML = list.map((p,i) => {
+    const c   = GC(p.cat);
+    const ts  = p.time?.toMillis ? p.time.toMillis() : (p.time||0);
     const isNew = now - ts < 3_600_000 * 3;
-    const ex = (p.content || '').replace(/\n/g,' ').slice(0,112) + (p.content?.length > 112 ? '…' : '');
-    const av = (p.author || 'AN').trim().slice(0,2).toUpperCase();
-    const liked = localStorage.getItem('lk_' + p.id);
-    const imgHtml = p.imageUrl ? `<img class="c-img" src="${esc(p.imageUrl)}" alt="ảnh bài" loading="lazy">` : '';
+    const ex  = (p.content||'').replace(/\n/g,' ').slice(0,112) + (p.content?.length>112?'…':'');
+    const av  = (p.author||'AN').trim().slice(0,2).toUpperCase();
+    const liked = localStorage.getItem('lk_'+p.id);
+    const imgHtml   = p.imageUrl ? `<img class="c-img" src="${esc(p.imageUrl)}" alt="ảnh" loading="lazy">` : '';
     const musicHtml = p.musicUrl ? `<div class="c-music"><div class="c-music-dot"></div>🎵 Có nhạc kèm theo</div>` : '';
     return `<div class="card" style="animation-delay:${i*.04}s" onclick="openDet('${p.id}')">
       <div class="cbar" style="background:${c.bar}"></div>
@@ -164,14 +149,14 @@ function renderPosts() {
           <span class="badge" style="background:${c.bg};color:${c.color}">${c.icon} ${c.name}</span>
           <span class="cdate">${ago(ts)}</span>
         </div>
-        <div class="ctitle">${esc(p.title || '')}</div>
+        <div class="ctitle">${esc(p.title||'')}</div>
         <div class="cex">${esc(ex)}</div>
         ${musicHtml}
       </div>
       <div class="cfoot">
         <div class="auth">
           <div class="av" style="background:${c.bg};color:${c.color}">${av}</div>
-          <span class="an">${esc(p.author || 'Ẩn danh')}</span>
+          <span class="an">${esc(p.author||'Ẩn danh')}</span>
         </div>
         <div class="acts">
           <button class="ab" style="${liked?'color:#E24B4A':''}" onclick="doLike(event,'${p.id}')">❤️ ${p.likes||0}</button>
@@ -182,38 +167,42 @@ function renderPosts() {
   }).join('');
 }
 
-// ── LIKE ─────────────────────────────────────────────────────
+// ── Like
 window.doLike = async (e, id) => {
   e.stopPropagation();
-  const k = 'lk_' + id;
-  const already = localStorage.getItem(k);
+  const k = 'lk_'+id, already = localStorage.getItem(k);
   try {
-    await updateDoc(doc(db, 'posts', id), { likes: increment(already ? -1 : 1) });
+    await updateDoc(doc(db,'posts',id), { likes: increment(already?-1:1) });
     already ? localStorage.removeItem(k) : localStorage.setItem(k,'1');
   } catch(err) { showT('Lỗi! Thử lại nhé.'); }
 };
 
-// ── DETAIL ───────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  DETAIL
+// ══════════════════════════════════════════════════════════════
 window.openDet = id => {
-  curDet = id;
-  renderDet();
+  curDet = id; renderDet();
   document.getElementById('detOv').classList.add('show');
   document.body.style.overflow = 'hidden';
 };
 window.closeDet = () => {
+  // stop embedded music iframe when closing
+  const fr = document.getElementById('detMusicFrame');
+  if (fr) fr.src = fr.src; // reset
   document.getElementById('detOv').classList.remove('show');
   document.body.style.overflow = '';
   curDet = null;
 };
-window.cDOut = e => { if (e.target === document.getElementById('detOv')) closeDet(); };
+window.cDOut = e => { if (e.target===document.getElementById('detOv')) closeDet(); };
 
 function renderDet() {
-  const p = posts.find(x => x.id === curDet);
+  const p = posts.find(x=>x.id===curDet);
   if (!p) return;
-  const c = GC(p.cat);
-  const ts = p.time?.toMillis ? p.time.toMillis() : (p.time || 0);
-  const av = (p.author || 'AN').trim().slice(0,2).toUpperCase();
-  const cmts = (p.comments || []).map(cm => `
+  const c  = GC(p.cat);
+  const ts = p.time?.toMillis ? p.time.toMillis() : (p.time||0);
+  const av = (p.author||'AN').trim().slice(0,2).toUpperCase();
+
+  const cmts = (p.comments||[]).map(cm=>`
     <div class="ci2">
       <div class="av" style="background:${c.bg};color:${c.color};width:28px;height:28px;font-size:.66rem;flex-shrink:0">${(cm.author||'AN').slice(0,2).toUpperCase()}</div>
       <div class="cb">
@@ -223,20 +212,38 @@ function renderDet() {
       </div>
     </div>`).join('');
 
+  // Image block with download button
   const imgHtml = p.imageUrl ? `
     <img src="${esc(p.imageUrl)}" class="d-img" alt="ảnh bài">
-    <a class="dl-btn" href="${esc(p.imageUrl)}" download="goc-hoc-tro-anh.jpg" target="_blank">⬇️ Tải ảnh về</a>
-  ` : '';
+    <div style="padding:0 1.3rem .6rem">
+      <button class="dl-btn" onclick="downloadImage('${esc(p.imageUrl)}')">⬇️ Tải ảnh về</button>
+    </div>` : '';
 
-  const musicHtml = p.musicUrl ? `
-    <div class="d-music">
-      <div class="d-music-info">
-        <div class="d-music-title">🎵 Nhạc kèm theo bài</div>
-        <div class="d-music-sub">Nhấn để phát nhạc của bài này</div>
-      </div>
-      <button class="d-music-btn" onclick="playMusicFromPost('${esc(p.musicUrl)}')">▶ Phát</button>
-    </div>
-  ` : '';
+  // Music block — dùng iframe embed thay vì YT API
+  let musicHtml = '';
+  if (p.musicUrl) {
+    const vid = extractVideoId(p.musicUrl);
+    if (vid) {
+      musicHtml = `
+        <div class="d-music">
+          <div class="d-music-info">
+            <div class="d-music-title">🎵 Nhạc kèm theo bài</div>
+            <div class="d-music-sub">Nhấn ▶ để phát nhạc</div>
+          </div>
+          <button class="d-music-btn" onclick="toggleDetMusic('${vid}',this)">▶ Phát</button>
+        </div>
+        <div id="detMusicContainer" style="display:none;padding:0 1.3rem .8rem">
+          <iframe id="detMusicFrame"
+            width="100%" height="80"
+            src=""
+            frameborder="0"
+            allow="autoplay; encrypted-media"
+            allowfullscreen
+            style="border-radius:10px;display:block">
+          </iframe>
+        </div>`;
+    }
+  }
 
   document.getElementById('detPanel').innerHTML = `
     <div class="dtop">
@@ -269,81 +276,117 @@ function renderDet() {
     </div>`;
 }
 
-window.doCmt = async () => {
-  const author = document.getElementById('cA')?.value.trim() || '';
-  const text   = document.getElementById('cTx')?.value.trim() || '';
-  if (!author || !text) { showT('Nhập tên và bình luận nhé!'); return; }
-  const btn = document.getElementById('cBtn');
-  btn.disabled = true; btn.textContent = '...';
-  try {
-    await updateDoc(doc(db, 'posts', curDet), { comments: arrayUnion({ author, text, time: Date.now() }) });
-    document.getElementById('cTx').value = '';
-    showT('💬 Đã đăng bình luận!');
-  } catch(e) { showT('Lỗi! Thử lại.'); }
-  btn.disabled = false; btn.textContent = 'Gửi';
+// Toggle music iframe in detail
+window.toggleDetMusic = (vid, btn) => {
+  const container = document.getElementById('detMusicContainer');
+  const frame     = document.getElementById('detMusicFrame');
+  if (container.style.display === 'none') {
+    // autoplay=1 + mute=0 để phát có âm thanh
+    frame.src = `https://www.youtube.com/embed/${vid}?autoplay=1&rel=0`;
+    container.style.display = 'block';
+    btn.textContent = '⏹ Dừng';
+  } else {
+    frame.src = '';
+    container.style.display = 'none';
+    btn.textContent = '▶ Phát';
+  }
 };
 
-// ── NEW POST ──────────────────────────────────────────────────
+// Download image — fetch as blob to trigger real download
+window.downloadImage = async (url) => {
+  try {
+    showT('⏳ Đang tải ảnh...', 2000);
+    const res  = await fetch(url);
+    const blob = await res.blob();
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = 'goc-hoc-tro-anh.jpg';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showT('✅ Đã tải ảnh về!', 2000);
+  } catch(e) {
+    // fallback: open in new tab
+    window.open(url, '_blank');
+  }
+};
+
+window.doCmt = async () => {
+  const author = document.getElementById('cA')?.value.trim()||'';
+  const text   = document.getElementById('cTx')?.value.trim()||'';
+  if (!author||!text) { showT('Nhập tên và bình luận nhé!'); return; }
+  const btn = document.getElementById('cBtn');
+  btn.disabled=true; btn.textContent='...';
+  try {
+    await updateDoc(doc(db,'posts',curDet), { comments: arrayUnion({ author, text, time:Date.now() }) });
+    document.getElementById('cTx').value='';
+    showT('💬 Đã đăng bình luận!');
+  } catch(e) { showT('Lỗi! Thử lại.'); }
+  btn.disabled=false; btn.textContent='Gửi';
+};
+
+// ══════════════════════════════════════════════════════════════
+//  NEW POST
+// ══════════════════════════════════════════════════════════════
 function buildCG() {
-  document.getElementById('catGrid').innerHTML = CATS.map(c => `
+  document.getElementById('catGrid').innerHTML = CATS.map(c=>`
     <div class="co ${selCat===c.id?'sel':''}" onclick="pCat('${c.id}')">
       <div class="ci">${c.icon}</div>
       <div class="cn">${c.name}</div>
     </div>`).join('');
 }
-window.pCat = id => { selCat = id; buildCG(); };
+window.pCat = id => { selCat=id; buildCG(); };
 
 window.openNew = () => {
   if (!db) { showT('⚠️ Chưa kết nối Firebase!'); return; }
-  selCat = null; buildCG();
+  selCat=null; buildCG();
   document.getElementById('newOv').classList.add('show');
-  document.body.style.overflow = 'hidden';
+  document.body.style.overflow='hidden';
 };
 window.closeNew = () => {
   document.getElementById('newOv').classList.remove('show');
-  document.body.style.overflow = '';
+  document.body.style.overflow='';
   resetForm();
 };
 function resetForm() {
-  ['pT','pC','pA','pMusic'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-  document.getElementById('tc').textContent  = '0';
-  document.getElementById('cc2').textContent = '0';
-  selCat = null; buildCG();
+  ['pT','pC','pA','pMusic'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('tc').textContent='0';
+  document.getElementById('cc2').textContent='0';
+  selCat=null; buildCG();
   clearImg();
 }
-window.upC = (src, out, max) => {
+window.upC = (src,out) => {
   document.getElementById(out).textContent = document.getElementById(src).value.length;
 };
 
 window.doSubmit = async () => {
-  const title   = document.getElementById('pT').value.trim();
-  const content = document.getElementById('pC').value.trim();
-  const author  = document.getElementById('pA').value.trim() || 'Ẩn danh';
-  const musicUrl= document.getElementById('pMusic').value.trim();
+  const title    = document.getElementById('pT').value.trim();
+  const content  = document.getElementById('pC').value.trim();
+  const author   = document.getElementById('pA').value.trim() || 'Ẩn danh';
+  const musicUrl = document.getElementById('pMusic').value.trim();
   if (!title)   { showT('Vui lòng nhập tiêu đề!'); return; }
   if (!content) { showT('Vui lòng nhập nội dung!'); return; }
   if (!selCat)  { showT('Vui lòng chọn danh mục!'); return; }
 
-  const btn = document.getElementById('subBtn');
-  btn.disabled = true; btn.textContent = '⏳ Đang đăng...';
+  // Validate music URL
+  if (musicUrl && !extractVideoId(musicUrl)) {
+    showT('⚠️ Link nhạc không hợp lệ! Phải là link YouTube.'); return;
+  }
 
+  const btn = document.getElementById('subBtn');
+  btn.disabled=true; btn.textContent='⏳ Đang đăng...';
+
+  // ── Ảnh: lưu base64 đã compress thẳng vào Firestore
+  //    (tránh phụ thuộc Storage rules / CORS)
   let imageUrl = '';
   if (finalImageDataUrl) {
-    try {
-      btn.textContent = '⏳ Đang tải ảnh...';
-      const imgRef = ref(storage, `posts/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`);
-      await uploadString(imgRef, finalImageDataUrl, 'data_url');
-      imageUrl = await getDownloadURL(imgRef);
-    } catch(e) {
-      console.warn('Lỗi upload ảnh, đăng không có ảnh:', e);
-      showT('⚠️ Không upload được ảnh, đăng bài không ảnh.');
-    }
+    // Compress xuống ~400px để vừa giới hạn Firestore (1MB/doc)
+    imageUrl = await compressToBase64(finalImageDataUrl, 480, 0.75);
   }
 
   try {
-    await addDoc(collection(db, 'posts'), {
+    await addDoc(collection(db,'posts'), {
       title, content, author, cat: selCat,
-      likes: 0, comments: [], pinned: false,
+      likes:0, comments:[], pinned:false,
       imageUrl: imageUrl || '',
       musicUrl: musicUrl || '',
       time: serverTimestamp()
@@ -352,12 +395,34 @@ window.doSubmit = async () => {
     showT('🎉 Đã đăng bài! Mọi người đều thấy rồi!', 3000);
   } catch(e) {
     console.error(e);
-    showT('❌ Lỗi đăng bài. Kiểm tra kết nối và Firestore rules.');
+    if (e.message?.includes('exceeds')) {
+      showT('❌ Ảnh quá lớn! Thử ảnh nhỏ hơn.');
+    } else {
+      showT('❌ Lỗi đăng bài. Kiểm tra kết nối và Firestore rules.');
+    }
   }
-  btn.disabled = false; btn.textContent = '📌 Đăng bài ngay';
+  btn.disabled=false; btn.textContent='📌 Đăng bài ngay';
 };
 
-// ── IMAGE / CAMERA ────────────────────────────────────────────
+// Compress image to base64 with max width
+function compressToBase64(dataUrl, maxW, quality) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale  = Math.min(1, maxW / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width  = img.width  * scale;
+      canvas.height = img.height * scale;
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = dataUrl;
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  IMAGE / CAMERA
+// ══════════════════════════════════════════════════════════════
 function setupDragDrop() {
   const zone = document.getElementById('imgZone');
   if (!zone) return;
@@ -376,12 +441,15 @@ window.handleFileSelect = e => {
 };
 
 function loadImageFile(file) {
+  // Warn if too big
+  if (file.size > 10 * 1024 * 1024) { showT('⚠️ Ảnh quá lớn (>10MB)! Chọn ảnh nhỏ hơn.'); return; }
   const reader = new FileReader();
   reader.onload = ev => {
-    rawImageDataUrl = ev.target.result;
+    rawImageDataUrl   = ev.target.result;
     finalImageDataUrl = rawImageDataUrl;
-    currentFilter = 'none';
+    currentFilter     = 'none';
     showImgPreview(finalImageDataUrl);
+    showT('✅ Đã chọn ảnh! Bấm ✨ Filter để chỉnh.');
   };
   reader.readAsDataURL(file);
 }
@@ -390,40 +458,46 @@ function showImgPreview(url) {
   const prev = document.getElementById('imgPreview');
   const ph   = document.getElementById('izPlaceholder');
   prev.src = url; prev.style.display = 'block';
-  ph.style.display = 'none';
+  if (ph) ph.style.display = 'none';
   document.getElementById('filterBtn').style.display = '';
   document.getElementById('delImgBtn').style.display = '';
 }
 
 window.clearImg = () => {
-  rawImageDataUrl = null; finalImageDataUrl = null; currentFilter = 'none';
+  rawImageDataUrl=null; finalImageDataUrl=null; currentFilter='none';
   const prev = document.getElementById('imgPreview');
-  prev.src = ''; prev.style.display = 'none';
-  document.getElementById('izPlaceholder').style.display = '';
-  document.getElementById('filterBtn').style.display = 'none';
-  document.getElementById('delImgBtn').style.display = 'none';
-  document.getElementById('fileInput').value = '';
+  if (prev) { prev.src=''; prev.style.display='none'; }
+  const ph = document.getElementById('izPlaceholder');
+  if (ph) ph.style.display='';
+  const fb = document.getElementById('filterBtn');
+  if (fb) fb.style.display='none';
+  const db2 = document.getElementById('delImgBtn');
+  if (db2) db2.style.display='none';
+  const fi = document.getElementById('fileInput');
+  if (fi) fi.value='';
 };
 
-// Camera
+// ── Camera
 window.openCam = async () => {
   try {
-    camStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } });
+    camStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:640} } });
     document.getElementById('camVideo').srcObject = camStream;
+    camFilterActive = 'none';
+    document.getElementById('camVideo').style.filter = 'none';
+    document.querySelectorAll('.cf-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
     document.getElementById('camOv').classList.add('show');
-    document.body.style.overflow = 'hidden';
   } catch(e) {
+    console.error(e);
     showT('❌ Không truy cập được camera. Kiểm tra quyền trình duyệt.');
   }
 };
 window.closeCam = () => {
-  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  if (camStream) { camStream.getTracks().forEach(t=>t.stop()); camStream=null; }
+  document.getElementById('camVideo').srcObject = null;
   document.getElementById('camOv').classList.remove('show');
-  document.body.style.overflow = 'hidden'; // keep new post open
 };
 
-// Camera filter (CSS on video)
-const camFilterCSS = {
+const CAM_FILTER_CSS = {
   none:   'none',
   warm:   'sepia(.4) saturate(1.4) hue-rotate(-10deg)',
   cool:   'saturate(.8) hue-rotate(20deg) brightness(1.05)',
@@ -433,78 +507,113 @@ const camFilterCSS = {
 };
 window.setFilter = (btn, name) => {
   camFilterActive = name;
-  document.getElementById('camVideo').style.filter = camFilterCSS[name] || 'none';
-  document.querySelectorAll('.cf-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('camVideo').style.filter = CAM_FILTER_CSS[name]||'none';
+  document.querySelectorAll('.cf-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
 };
 
 window.capturePhoto = () => {
-  const video  = document.getElementById('camVideo');
+  const video = document.getElementById('camVideo');
+  if (!video.srcObject) { showT('Camera chưa sẵn sàng!'); return; }
   const canvas = document.getElementById('camCanvas');
-  canvas.width  = video.videoWidth;
-  canvas.height = video.videoHeight;
+  canvas.width  = video.videoWidth  || 640;
+  canvas.height = video.videoHeight || 480;
   const ctx = canvas.getContext('2d');
-  ctx.filter = camFilterCSS[camFilterActive] || 'none';
-  ctx.drawImage(video, 0, 0);
-  rawImageDataUrl = canvas.toDataURL('image/jpeg', .92);
+  // Apply CSS filter via canvas filter
+  ctx.filter = CAM_FILTER_CSS[camFilterActive] || 'none';
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  rawImageDataUrl   = canvas.toDataURL('image/jpeg', .92);
   finalImageDataUrl = rawImageDataUrl;
-  currentFilter = camFilterActive;
+  currentFilter     = camFilterActive;
   closeCam();
   showImgPreview(finalImageDataUrl);
   showT('📸 Đã chụp! Bạn có thể thêm filter.');
 };
 
-// Filter modal (for images from file or camera)
+// ── Filter modal
 window.openFilter = () => {
   if (!rawImageDataUrl) return;
   const canvas = document.getElementById('filterCanvas');
-  applyFilterToCanvas(rawImageDataUrl, canvas, currentFilter, () => {
-    renderFilterPreviews();
+  _drawFiltered(rawImageDataUrl, canvas, currentFilter, () => {
+    _renderFilterPreviews();
+    // Highlight active btn
+    document.querySelectorAll('.fg-btn').forEach(b => {
+      b.classList.toggle('active', b.getAttribute('onclick').includes(`'${currentFilter}'`));
+    });
     document.getElementById('filterOv').classList.add('show');
   });
 };
 window.closeFilter = () => { document.getElementById('filterOv').classList.remove('show'); };
 
-const FILTERS = {
-  none:   img => img,
-  warm:   (img, ctx, w, h) => { ctx.drawImage(img,0,0,w,h); const d=ctx.getImageData(0,0,w,h); for(let i=0;i<d.data.length;i+=4){d.data[i]=Math.min(255,d.data[i]*1.15);d.data[i+2]=Math.max(0,d.data[i+2]*.85);} ctx.putImageData(d,0,0); },
-  cool:   (img, ctx, w, h) => { ctx.drawImage(img,0,0,w,h); const d=ctx.getImageData(0,0,w,h); for(let i=0;i<d.data.length;i+=4){d.data[i]=Math.max(0,d.data[i]*.88);d.data[i+2]=Math.min(255,d.data[i+2]*1.18);} ctx.putImageData(d,0,0); },
-  dreamy: (img, ctx, w, h) => { ctx.drawImage(img,0,0,w,h); const d=ctx.getImageData(0,0,w,h); for(let i=0;i<d.data.length;i+=4){d.data[i]=Math.min(255,(d.data[i]*0.85)+30);d.data[i+1]=Math.min(255,(d.data[i+1]*0.85)+20);d.data[i+2]=Math.min(255,(d.data[i+2]*0.9)+30);} ctx.putImageData(d,0,0); ctx.fillStyle='rgba(255,200,220,.18)'; ctx.fillRect(0,0,w,h); },
-  retro:  (img, ctx, w, h) => { ctx.drawImage(img,0,0,w,h); const d=ctx.getImageData(0,0,w,h); for(let i=0;i<d.data.length;i+=4){const r=d.data[i],g=d.data[i+1],b=d.data[i+2];d.data[i]=Math.min(255,r*.393+g*.769+b*.189);d.data[i+1]=Math.min(255,r*.349+g*.686+b*.168);d.data[i+2]=Math.min(255,r*.272+g*.534+b*.131);} ctx.putImageData(d,0,0); ctx.fillStyle='rgba(180,130,60,.12)'; ctx.fillRect(0,0,w,h); },
-  bw:     (img, ctx, w, h) => { ctx.drawImage(img,0,0,w,h); const d=ctx.getImageData(0,0,w,h); for(let i=0;i<d.data.length;i+=4){const g=d.data[i]*.3+d.data[i+1]*.59+d.data[i+2]*.11;d.data[i]=d.data[i+1]=d.data[i+2]=g;} ctx.putImageData(d,0,0); },
+// Filter implementations (pixel-level on canvas)
+const FILTER_FNS = {
+  none:   (img,ctx,w,h) => { ctx.drawImage(img,0,0,w,h); },
+  warm:   (img,ctx,w,h) => {
+    ctx.drawImage(img,0,0,w,h);
+    const d=ctx.getImageData(0,0,w,h);
+    for(let i=0;i<d.data.length;i+=4){d.data[i]=Math.min(255,d.data[i]*1.15);d.data[i+2]=Math.max(0,d.data[i+2]*.85);}
+    ctx.putImageData(d,0,0);
+  },
+  cool:   (img,ctx,w,h) => {
+    ctx.drawImage(img,0,0,w,h);
+    const d=ctx.getImageData(0,0,w,h);
+    for(let i=0;i<d.data.length;i+=4){d.data[i]=Math.max(0,d.data[i]*.88);d.data[i+2]=Math.min(255,d.data[i+2]*1.18);}
+    ctx.putImageData(d,0,0);
+  },
+  dreamy: (img,ctx,w,h) => {
+    ctx.drawImage(img,0,0,w,h);
+    const d=ctx.getImageData(0,0,w,h);
+    for(let i=0;i<d.data.length;i+=4){d.data[i]=Math.min(255,d.data[i]*.85+30);d.data[i+1]=Math.min(255,d.data[i+1]*.85+20);d.data[i+2]=Math.min(255,d.data[i+2]*.9+30);}
+    ctx.putImageData(d,0,0);
+    ctx.fillStyle='rgba(255,200,220,.18)'; ctx.fillRect(0,0,w,h);
+  },
+  retro:  (img,ctx,w,h) => {
+    ctx.drawImage(img,0,0,w,h);
+    const d=ctx.getImageData(0,0,w,h);
+    for(let i=0;i<d.data.length;i+=4){
+      const r=d.data[i],g=d.data[i+1],b=d.data[i+2];
+      d.data[i]  =Math.min(255,r*.393+g*.769+b*.189);
+      d.data[i+1]=Math.min(255,r*.349+g*.686+b*.168);
+      d.data[i+2]=Math.min(255,r*.272+g*.534+b*.131);
+    }
+    ctx.putImageData(d,0,0);
+    ctx.fillStyle='rgba(180,130,60,.12)'; ctx.fillRect(0,0,w,h);
+  },
+  bw:     (img,ctx,w,h) => {
+    ctx.drawImage(img,0,0,w,h);
+    const d=ctx.getImageData(0,0,w,h);
+    for(let i=0;i<d.data.length;i+=4){const g=d.data[i]*.3+d.data[i+1]*.59+d.data[i+2]*.11;d.data[i]=d.data[i+1]=d.data[i+2]=g;}
+    ctx.putImageData(d,0,0);
+  },
 };
 
-function applyFilterToCanvas(dataUrl, canvas, filterName, cb) {
+function _drawFiltered(dataUrl, canvas, filterName, cb) {
   const img = new Image();
   img.onload = () => {
-    const scale = Math.min(1, 600/img.width, 800/img.height);
-    canvas.width  = img.width  * scale;
-    canvas.height = img.height * scale;
+    const scale   = Math.min(1, 560/img.width, 700/img.height);
+    canvas.width  = Math.round(img.width  * scale);
+    canvas.height = Math.round(img.height * scale);
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    const fn = FILTERS[filterName];
-    if (fn && filterName !== 'none') fn(img, ctx, canvas.width, canvas.height);
-    else ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    (FILTER_FNS[filterName] || FILTER_FNS.none)(img, ctx, canvas.width, canvas.height);
     if (cb) cb();
   };
   img.src = dataUrl;
 }
 
-function renderFilterPreviews() {
-  const names = ['none','warm','cool','dreamy','retro','bw'];
-  names.forEach(name => {
+function _renderFilterPreviews() {
+  Object.keys(FILTER_FNS).forEach(name => {
     const el = document.getElementById('fp_'+name);
     if (!el) return;
-    const c = document.createElement('canvas');
-    c.width=60; c.height=45;
+    const c2 = document.createElement('canvas');
+    c2.width=60; c2.height=45;
     const img = new Image();
     img.onload = () => {
-      const ctx = c.getContext('2d');
-      const fn = FILTERS[name];
-      if (fn && name !== 'none') fn(img, ctx, 60, 45);
-      else ctx.drawImage(img, 0, 0, 60, 45);
-      el.style.backgroundImage = `url(${c.toDataURL()})`;
-      el.style.backgroundSize = 'cover';
+      const ctx = c2.getContext('2d');
+      (FILTER_FNS[name]||FILTER_FNS.none)(img, ctx, 60, 45);
+      el.style.backgroundImage = `url(${c2.toDataURL()})`;
+      el.style.backgroundSize  = 'cover';
+      el.style.backgroundPosition = 'center';
     };
     img.src = rawImageDataUrl;
   });
@@ -512,8 +621,8 @@ function renderFilterPreviews() {
 
 window.applyFilter = (btn, name) => {
   currentFilter = name;
-  applyFilterToCanvas(rawImageDataUrl, document.getElementById('filterCanvas'), name, null);
-  document.querySelectorAll('.fg-btn').forEach(b => b.classList.remove('active'));
+  _drawFiltered(rawImageDataUrl, document.getElementById('filterCanvas'), name, null);
+  document.querySelectorAll('.fg-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
 };
 
@@ -525,32 +634,21 @@ window.confirmFilter = () => {
   showT('✨ Đã áp dụng filter!');
 };
 
-// ── YOUTUBE ───────────────────────────────────────────────────
-window.onYouTubeIframeAPIReady = () => {
-  ytReady = true;
-  ytPlayer = new YT.Player('ytPlayer', {
-    height:'1', width:'1',
-    playerVars:{ autoplay:0, controls:0 },
-    events:{
-      onReady: () => {
-        if (pendingVideoId) { ytPlayer.loadVideoById(pendingVideoId); pendingVideoId = null; }
-      },
-      onStateChange: e => {
-        if (e.data === YT.PlayerState.PLAYING) {
-          document.getElementById('ytStatus').textContent = '🎵 Đang phát...';
-        } else if (e.data === YT.PlayerState.ENDED || e.data === YT.PlayerState.PAUSED) {
-          document.getElementById('ytStatus').textContent = '';
-        }
-      }
-    }
-  });
+// ══════════════════════════════════════════════════════════════
+//  MUSIC (global — header bar)
+//  Dùng iframe embed trực tiếp — không cần YT IFrame API
+// ══════════════════════════════════════════════════════════════
+window.openMusicBar = () => {
+  document.getElementById('musicBar').classList.toggle('open');
 };
 
 function extractVideoId(url) {
+  if (!url) return null;
   const patterns = [
     /youtu\.be\/([A-Za-z0-9_-]{11})/,
-    /youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})/,
+    /[?&]v=([A-Za-z0-9_-]{11})/,
     /youtube\.com\/embed\/([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/,
   ];
   for (const p of patterns) {
     const m = url.match(p);
@@ -559,48 +657,43 @@ function extractVideoId(url) {
   return null;
 }
 
-function playVideoId(videoId) {
-  document.getElementById('ytEmbed').style.display = 'block';
-  if (!ytPlayer || !ytReady) {
-    pendingVideoId = videoId;
-  } else {
-    ytPlayer.loadVideoById(videoId);
-  }
-}
-
 window.loadYT = () => {
   const url = document.getElementById('ytInput').value.trim();
   if (!url) { showT('Dán link YouTube vào nhé!'); return; }
-  const id = extractVideoId(url);
-  if (!id) { showT('Link YouTube không hợp lệ!'); return; }
-  playVideoId(id);
+  const vid = extractVideoId(url);
+  if (!vid) { showT('❌ Link YouTube không hợp lệ!'); return; }
+  _embedGlobalMusic(vid);
+  document.getElementById('ytStatus').textContent = '🎵 Đang phát...';
   showT('🎵 Đang phát nhạc...', 2000);
 };
 
 window.stopYT = () => {
-  if (ytPlayer && ytReady) {
-    ytPlayer.stopVideo();
-    document.getElementById('ytStatus').textContent = '';
-    showT('⏹ Đã dừng nhạc.', 1500);
+  const wrap = document.getElementById('globalMusicWrap');
+  if (wrap) wrap.innerHTML = '';
+  document.getElementById('ytStatus').textContent = '';
+  showT('⏹ Đã dừng nhạc.', 1500);
+};
+
+function _embedGlobalMusic(vid) {
+  let wrap = document.getElementById('globalMusicWrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'globalMusicWrap';
+    wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden';
+    document.body.appendChild(wrap);
   }
-};
+  // autoplay=1, tự phát khi load
+  wrap.innerHTML = `<iframe
+    src="https://www.youtube.com/embed/${vid}?autoplay=1&rel=0&loop=1&playlist=${vid}"
+    frameborder="0"
+    allow="autoplay; encrypted-media"
+    width="1" height="1">
+  </iframe>`;
+}
 
-window.playMusicFromPost = url => {
-  const id = extractVideoId(url);
-  if (!id) { showT('Link nhạc không hợp lệ!'); return; }
-  // Open music bar and play
-  const bar = document.getElementById('musicBar');
-  bar.classList.add('open');
-  document.getElementById('ytInput').value = url;
-  playVideoId(id);
-  showT('🎵 Đang phát nhạc từ bài này...', 2000);
-};
-
-window.openMusicBar = () => {
-  document.getElementById('musicBar').classList.toggle('open');
-};
-
-// ── UTILS ─────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════════════════════
 function setNotice(type, msg) {
   const el = document.getElementById('dbNotice');
   el.className = `notice ${type}`;
@@ -608,23 +701,22 @@ function setNotice(type, msg) {
 }
 function showT(msg, dur=2700) {
   const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
+  t.textContent=msg; t.classList.add('show');
   clearTimeout(t._t);
-  t._t = setTimeout(() => t.classList.remove('show'), dur);
+  t._t = setTimeout(()=>t.classList.remove('show'), dur);
 }
 function ago(ts) {
-  const ms = typeof ts === 'number' ? ts : (ts?.toMillis?.() || 0);
-  const d = (Date.now() - ms) / 1000;
-  if (d < 60)    return 'Vừa xong';
-  if (d < 3600)  return Math.floor(d/60) + ' phút trước';
-  if (d < 86400) return Math.floor(d/3600) + ' giờ trước';
-  return Math.floor(d/86400) + ' ngày trước';
+  const ms = typeof ts==='number' ? ts : (ts?.toMillis?.()||0);
+  const d  = (Date.now()-ms)/1000;
+  if (d<60)    return 'Vừa xong';
+  if (d<3600)  return Math.floor(d/60)+' phút trước';
+  if (d<86400) return Math.floor(d/3600)+' giờ trước';
+  return Math.floor(d/86400)+' ngày trước';
 }
 
-// Close modals on BG click
-document.getElementById('newOv').onclick = e => { if (e.target===document.getElementById('newOv')) closeNew(); };
-document.getElementById('camOv').onclick  = e => { if (e.target===document.getElementById('camOv'))  closeCam(); };
-document.getElementById('filterOv').onclick = e => { if (e.target===document.getElementById('filterOv')) closeFilter(); };
+// Modal backdrop clicks
+document.getElementById('newOv').onclick    = e => { if(e.target===document.getElementById('newOv'))    closeNew(); };
+document.getElementById('camOv').onclick    = e => { if(e.target===document.getElementById('camOv'))    closeCam(); };
+document.getElementById('filterOv').onclick = e => { if(e.target===document.getElementById('filterOv')) closeFilter(); };
 
-// ── START ─────────────────────────────────────────────────────
 init();
