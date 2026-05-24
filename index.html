@@ -6,34 +6,65 @@
 <title>Góc Học Trò 📚</title>
 <meta name="description" content="Nơi chia sẻ kỷ niệm, kiến thức và câu chuyện mái trường tuổi học trò">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<!-- Decorative BG -->
 <div class="ruled"></div>
 <div class="glow"></div>
+<div class="paper-holes">
+  <div class="hole"></div><div class="hole"></div><div class="hole"></div>
+  <div class="hole"></div><div class="hole"></div>
+</div>
 
+<!-- Floating stickers -->
+<div class="sticker s1">🌸</div>
+<div class="sticker s2">📚</div>
+<div class="sticker s3">✨</div>
+<div class="sticker s4">💌</div>
+<div class="sticker s5">🎵</div>
+<div class="sticker s6">🌈</div>
+
+<!-- ===== HEADER ===== -->
 <header>
   <div class="hi">
     <div class="logo">
       <div class="logo-ic">📚</div>
       <div>
         <div class="logo-t">Góc Học Trò</div>
-        <div class="logo-s">Nơi lưu giữ kỷ niệm &amp; chia sẻ kiến thức</div>
+        <div class="logo-s">✨ Nơi lưu giữ kỷ niệm &amp; chia sẻ yêu thương ✨</div>
       </div>
     </div>
-    <button class="btn-new" onclick="openNew()">✏️ Đăng bài</button>
+    <div class="hacts">
+      <button class="btn-music" id="btnMusicToggle" onclick="openMusicBar()" title="Nhạc nền">🎵</button>
+      <button class="btn-new" onclick="openNew()">✏️ Đăng bài</button>
+    </div>
+  </div>
+
+  <!-- Music bar (collapsible) -->
+  <div class="music-bar" id="musicBar">
+    <div class="music-inner">
+      <span class="music-label">🎶 Nhạc nền</span>
+      <input type="text" id="ytInput" placeholder="Dán link YouTube vào đây..." class="yt-input">
+      <button class="yt-btn" onclick="loadYT()">▶ Phát</button>
+      <button class="yt-btn yt-stop" onclick="stopYT()">⏹ Dừng</button>
+      <div id="ytStatus" class="yt-status"></div>
+    </div>
+    <div id="ytEmbed" style="display:none;position:absolute;width:1px;height:1px;overflow:hidden;left:-9999px">
+      <div id="ytPlayer"></div>
+    </div>
   </div>
 </header>
 
+<!-- ===== MAIN ===== -->
 <main class="main">
-  <div class="notice" id="dbNotice">
-    🔌 Đang kết nối database... Vui lòng chờ.
-  </div>
+  <div class="notice" id="dbNotice">🔌 Đang kết nối...</div>
 
   <div class="sw">
     <span style="color:var(--muted)">🔍</span>
-    <input type="text" id="si" placeholder="Tìm bài viết, tác giả, nội dung..." oninput="doFilter()">
+    <input type="text" id="si" placeholder="Tìm bài viết, tên bạn, nội dung..." oninput="doFilter()">
     <button class="btn-refresh" onclick="loadPosts(true)" title="Tải lại">🔄</button>
   </div>
 
@@ -47,7 +78,7 @@
   </div>
 </main>
 
-<!-- Modal đăng bài -->
+<!-- ===== MODAL ĐĂNG BÀI ===== -->
 <div class="ov" id="newOv">
   <div class="modal">
     <div class="mhd">
@@ -55,41 +86,129 @@
       <button class="xb" onclick="closeNew()">✕</button>
     </div>
     <div class="mb">
+
       <div class="fg">
         <label class="fl">Tiêu đề <span style="color:var(--red)">*</span></label>
         <input type="text" class="fi" id="pT" placeholder="Tiêu đề hấp dẫn..." maxlength="100" oninput="upC('pT','tc',100)">
         <div class="ch"><span id="tc">0</span>/100</div>
       </div>
+
       <div class="fg">
         <label class="fl">Danh mục <span style="color:var(--red)">*</span></label>
         <div class="cg" id="catGrid"></div>
       </div>
+
       <div class="fg">
         <label class="fl">Nội dung <span style="color:var(--red)">*</span></label>
         <textarea class="fi" id="pC" placeholder="Chia sẻ câu chuyện, kiến thức, kỷ niệm của bạn..." maxlength="2000" oninput="upC('pC','cc2',2000)"></textarea>
         <div class="ch"><span id="cc2">0</span>/2000</div>
       </div>
+
+      <!-- IMAGE SECTION -->
+      <div class="fg">
+        <label class="fl">📸 Ảnh đính kèm</label>
+        <div class="img-zone" id="imgZone">
+          <div class="img-zone-inner" id="imgZoneInner">
+            <div class="iz-placeholder" id="izPlaceholder">
+              <div class="iz-icon">📷</div>
+              <div class="iz-txt">Kéo thả ảnh vào đây<br>hoặc chọn cách bên dưới</div>
+            </div>
+            <img id="imgPreview" src="" alt="" style="display:none;max-width:100%;border-radius:10px;margin-top:8px">
+          </div>
+          <div class="img-btns">
+            <label class="img-btn" title="Chọn ảnh từ máy">
+              🖼️ Chọn ảnh
+              <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFileSelect(event)">
+            </label>
+            <button class="img-btn" onclick="openCam()">📷 Chụp ảnh</button>
+            <button class="img-btn" id="filterBtn" onclick="openFilter()" style="display:none">✨ Filter</button>
+            <button class="img-btn img-btn-del" id="delImgBtn" onclick="clearImg()" style="display:none">🗑️ Xóa ảnh</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MUSIC LINK IN POST -->
+      <div class="fg">
+        <label class="fl">🎵 Link nhạc YouTube (không bắt buộc)</label>
+        <input type="text" class="fi" id="pMusic" placeholder="https://youtu.be/... hoặc https://www.youtube.com/watch?v=...">
+        <div class="ch" style="color:var(--muted)">Người xem bài sẽ có thể bật nhạc này</div>
+      </div>
+
       <div class="fg">
         <label class="fl">Tên của bạn</label>
-        <input type="text" class="fi" id="pA" placeholder="Biệt danh hoặc tên thật (để trống = Ẩn danh)..." maxlength="40">
+        <input type="text" class="fi" id="pA" placeholder="Biệt danh / tên thật (để trống = Ẩn danh)" maxlength="40">
       </div>
+
       <button class="sub" id="subBtn" onclick="doSubmit()">📌 Đăng bài ngay</button>
     </div>
   </div>
 </div>
 
-<!-- Modal xem chi tiết -->
+<!-- ===== MODAL CAMERA ===== -->
+<div class="ov" id="camOv">
+  <div class="modal" style="max-width:480px">
+    <div class="mhd">
+      <div class="mt">📷 Chụp ảnh</div>
+      <button class="xb" onclick="closeCam()">✕</button>
+    </div>
+    <div class="mb">
+      <div class="cam-wrap">
+        <video id="camVideo" autoplay playsinline></video>
+        <canvas id="camCanvas" style="display:none"></canvas>
+        <div class="cam-filter-bar">
+          <button class="cf-btn active" onclick="setFilter(this,'none')">✨ Gốc</button>
+          <button class="cf-btn" onclick="setFilter(this,'warm')">🧡 Ấm</button>
+          <button class="cf-btn" onclick="setFilter(this,'cool')">💙 Lạnh</button>
+          <button class="cf-btn" onclick="setFilter(this,'dreamy')">🌸 Mộng</button>
+          <button class="cf-btn" onclick="setFilter(this,'retro')">📷 Retro</button>
+          <button class="cf-btn" onclick="setFilter(this,'bw')">🖤 Đen trắng</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:.8rem">
+        <button class="sub" style="margin:0" onclick="capturePhoto()">📸 Chụp ngay</button>
+        <button class="sub" style="margin:0;background:var(--muted)" onclick="closeCam()">Hủy</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL FILTER (sau khi có ảnh) ===== -->
+<div class="ov" id="filterOv">
+  <div class="modal" style="max-width:500px">
+    <div class="mhd">
+      <div class="mt">✨ Chỉnh filter ảnh</div>
+      <button class="xb" onclick="closeFilter()">✕</button>
+    </div>
+    <div class="mb">
+      <canvas id="filterCanvas" style="max-width:100%;border-radius:12px;display:block;margin:0 auto"></canvas>
+      <div class="filter-grid">
+        <button class="fg-btn active" onclick="applyFilter(this,'none')"><span class="fgp" id="fp_none"></span><span>✨ Gốc</span></button>
+        <button class="fg-btn" onclick="applyFilter(this,'warm')"><span class="fgp" id="fp_warm"></span><span>🧡 Ấm áp</span></button>
+        <button class="fg-btn" onclick="applyFilter(this,'cool')"><span class="fgp" id="fp_cool"></span><span>💙 Mát lạnh</span></button>
+        <button class="fg-btn" onclick="applyFilter(this,'dreamy')"><span class="fgp" id="fp_dreamy"></span><span>🌸 Mộng mơ</span></button>
+        <button class="fg-btn" onclick="applyFilter(this,'retro')"><span class="fgp" id="fp_retro"></span><span>📷 Retro</span></button>
+        <button class="fg-btn" onclick="applyFilter(this,'bw')"><span class="fgp" id="fp_bw"></span><span>🖤 Đen trắng</span></button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:.8rem">
+        <button class="sub" style="margin:0" onclick="confirmFilter()">✅ Dùng ảnh này</button>
+        <button class="sub" style="margin:0;background:var(--muted)" onclick="closeFilter()">Hủy</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL CHI TIẾT ===== -->
 <div class="dov" id="detOv" onclick="cDOut(event)">
   <div class="dp" id="detPanel"></div>
 </div>
 
 <div class="toast" id="toast"></div>
 
+<!-- YouTube API -->
+<script src="https://www.youtube.com/iframe_api"></script>
+
 <!-- Firebase SDK -->
 <script type="module" src="app.js"></script>
-<div class="float f1">🌸</div>
-<div class="float f2">📚</div>
-<div class="float f3">✨</div>
-<div class="float f4">💌</div>
+
 </body>
-</html>
+</html>\
