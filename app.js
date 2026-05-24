@@ -276,13 +276,24 @@ function renderDet() {
     </div>`;
 }
 
-// Toggle music iframe in detail
-window.toggleDetMusic = (vid, btn) => {
+// Toggle music in detail panel — multi source
+window.toggleDetMusic = (rawUrl, btn) => {
   const container = document.getElementById('detMusicContainer');
   const frame     = document.getElementById('detMusicFrame');
   if (container.style.display === 'none') {
-    // autoplay=1 + mute=0 để phát có âm thanh
-    frame.src = `https://www.youtube.com/embed/${vid}?autoplay=1&rel=0`;
+    const type = detectMusicType(rawUrl);
+    if (type === 'soundcloud') {
+      const encoded = encodeURIComponent(rawUrl);
+      frame.src = `https://w.soundcloud.com/player/?url=${encoded}&color=%237F77DD&auto_play=true&hide_related=true&show_comments=false&show_user=false`;
+    } else {
+      // YouTube or fallback
+      const vid = extractVideoId(rawUrl);
+      if (vid) {
+        frame.src = `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&rel=0&modestbranding=1`;
+      } else {
+        showT('❌ Không nhận ra link nhạc này!'); return;
+      }
+    }
     container.style.display = 'block';
     btn.textContent = '⏹ Dừng';
   } else {
@@ -635,12 +646,26 @@ window.confirmFilter = () => {
 };
 
 // ══════════════════════════════════════════════════════════════
-//  MUSIC (global — header bar)
-//  Dùng iframe embed trực tiếp — không cần YT IFrame API
+//  MUSIC — multi-source player (MP3 / SoundCloud / YouTube)
 // ══════════════════════════════════════════════════════════════
 window.openMusicBar = () => {
   document.getElementById('musicBar').classList.toggle('open');
 };
+window.toggleMusicHelp = () => {
+  const el = document.getElementById('musicHelp');
+  el.style.display = el.style.display === 'none' ? '' : 'none';
+};
+
+// Detect URL type
+function detectMusicType(url) {
+  if (!url) return null;
+  if (/soundcloud\.com\//i.test(url))  return 'soundcloud';
+  if (/youtu\.be\/|youtube\.com\//i.test(url)) return 'youtube';
+  if (/\.(mp3|ogg|wav|aac|m4a)(\?|$)/i.test(url)) return 'mp3';
+  // Google Drive / Dropbox direct links
+  if (/drive\.google\.com|dropbox\.com|githubusercontent\.com/i.test(url)) return 'mp3';
+  return null;
+}
 
 function extractVideoId(url) {
   if (!url) return null;
@@ -650,46 +675,78 @@ function extractVideoId(url) {
     /youtube\.com\/embed\/([A-Za-z0-9_-]{11})/,
     /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/,
   ];
-  for (const p of patterns) {
-    const m = url.match(p);
-    if (m) return m[1];
-  }
+  for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
   return null;
 }
 
-window.loadYT = () => {
-  const url = document.getElementById('ytInput').value.trim();
-  if (!url) { showT('Dán link YouTube vào nhé!'); return; }
-  const vid = extractVideoId(url);
-  if (!vid) { showT('❌ Link YouTube không hợp lệ!'); return; }
-  _embedGlobalMusic(vid);
-  document.getElementById('ytStatus').textContent = '🎵 Đang phát...';
-  showT('🎵 Đang phát nhạc...', 2000);
+function stopAllMusic() {
+  // Stop HTML5 audio
+  const audio = document.getElementById('audioPlayer');
+  if (audio) { audio.pause(); audio.src = ''; }
+  // Stop SoundCloud
+  const scFrame = document.getElementById('scFrame');
+  if (scFrame) { scFrame.src = ''; document.getElementById('scContainer').style.display = 'none'; }
+  // Stop YouTube hidden
+  const yt = document.getElementById('ytHidden');
+  if (yt) yt.innerHTML = '';
+}
+
+window.loadMusic = () => {
+  const raw = document.getElementById('musicInput').value.trim();
+  if (!raw) { showT('Dán link nhạc vào nhé!'); return; }
+  const type = detectMusicType(raw);
+
+  stopAllMusic();
+
+  if (type === 'mp3') {
+    // Convert known drive/dropbox links to direct
+    let src = raw;
+    // Google Drive: /file/d/ID/view → /uc?export=download&id=ID
+    src = src.replace(/drive\.google\.com\/file\/d\/([^/]+)\/.*/, 'drive.google.com/uc?export=download&id=$1');
+    // Dropbox: ?dl=0 → ?raw=1
+    src = src.replace('dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0','').replace('?dl=1','');
+
+    const audio = document.getElementById('audioPlayer');
+    audio.src  = src;
+    audio.loop = true;
+    audio.play().then(() => {
+      showT('🎵 Đang phát nhạc MP3!', 2000);
+    }).catch(() => {
+      showT('❌ Không phát được! Link phải là file MP3 trực tiếp.');
+    });
+
+  } else if (type === 'soundcloud') {
+    const encoded = encodeURIComponent(raw);
+    const scSrc = `https://w.soundcloud.com/player/?url=${encoded}&color=%237F77DD&auto_play=true&hide_related=true&show_comments=false&show_user=false&show_reposts=false`;
+    document.getElementById('scFrame').src = scSrc;
+    document.getElementById('scContainer').style.display = '';
+    showT('🎵 Đang phát SoundCloud!', 2000);
+
+  } else if (type === 'youtube') {
+    const vid = extractVideoId(raw);
+    if (!vid) { showT('❌ Không lấy được ID video YouTube!'); return; }
+    // Dùng youtube-nocookie để giảm tracking, nhưng vẫn có thể có quảng cáo
+    document.getElementById('ytHidden').innerHTML =
+      `<iframe src="https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&loop=1&playlist=${vid}&rel=0&modestbranding=1"
+        width="1" height="1" frameborder="0" allow="autoplay;encrypted-media"></iframe>`;
+    showT('🎵 Phát YouTube (có thể có quảng cáo)', 3000);
+
+  } else {
+    showT('❌ Link không hợp lệ! Thử link MP3 hoặc SoundCloud.');
+  }
 };
 
-window.stopYT = () => {
-  const wrap = document.getElementById('globalMusicWrap');
-  if (wrap) wrap.innerHTML = '';
-  document.getElementById('ytStatus').textContent = '';
+window.stopMusic = () => {
+  stopAllMusic();
   showT('⏹ Đã dừng nhạc.', 1500);
 };
 
-function _embedGlobalMusic(vid) {
-  let wrap = document.getElementById('globalMusicWrap');
-  if (!wrap) {
-    wrap = document.createElement('div');
-    wrap.id = 'globalMusicWrap';
-    wrap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden';
-    document.body.appendChild(wrap);
-  }
-  // autoplay=1, tự phát khi load
-  wrap.innerHTML = `<iframe
-    src="https://www.youtube.com/embed/${vid}?autoplay=1&rel=0&loop=1&playlist=${vid}"
-    frameborder="0"
-    allow="autoplay; encrypted-media"
-    width="1" height="1">
-  </iframe>`;
-}
+// Play music triggered from post detail
+window.playMusicFromPost = (url) => {
+  document.getElementById('musicInput').value = url;
+  document.getElementById('musicBar').classList.add('open');
+  loadMusic();
+};
 
 // ══════════════════════════════════════════════════════════════
 //  UTILS
